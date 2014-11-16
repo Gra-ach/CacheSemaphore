@@ -3,9 +3,10 @@ CacheSemaphore
 
 This project contains an example of how to create and work with Seaphore in DBMS Intersystems Caché. It uses Increment and Decrement methods.
 
-----------------------------------------=============================================----------------------------------------
+------------------------------=========================================------------------------------
 University was given 10 slots to access international database of scientific articles. Each student has its own username and password. Each time someone logs in the database the number of available slots is decreased (of course) and when someone logs out this number comes up. 
-----------------------------------------=============================================----------------------------------------
+------------------------------=========================================------------------------------
+
 
 The idea of this sample is to show how to use semaphore to share access to the DB between students.
 
