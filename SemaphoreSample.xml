@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-32) 2014.2 (Build 372U)" ts="2014-11-15 18:11:54">
+<Class name="SemaphoreSample.Counter">
+<Super>%SYSTEM.Semaphore</Super>
+<TimeChanged>63500,78967.765983</TimeChanged>
+<TimeCreated>63500,68198.563539</TimeCreated>
+
+<Property name="Amount">
+<Type>%Integer</Type>
+</Property>
+
+<Method name="Name">
+<Description>
+Каждый счетчик должен имет свое уникальное имя</Description>
+<ClassMethod>1</ClassMethod>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[    Quit "Counter"
+]]></Implementation>
+</Method>
+
+<Method name="Log">
+<Description>
+Вызов утилиты для записи лога</Description>
+<FormalSpec>Msg:%String</FormalSpec>
+<Private>1</Private>
+<Implementation><![CDATA[
+    Do ##class(SemaphoreSample.Util).Logger($Horolog, ..Name(), Msg)
+    Quit
+]]></Implementation>
+</Method>
+
+<Method name="%OnNew">
+<Description>
+Callback метод при создании нового объекта</Description>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+    Set msg = "Создание нового семафора"
+    Do ..Log(msg)
+    Quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="Init">
+<Description>
+Создание и инициализация семафора</Description>
+<FormalSpec>initvalue=0</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+    Try {
+        set ..Amount = initvalue
+        If (..Create(..Name(), initvalue)) {
+            Set msg = "Создан: """ _ ..Name() 
+                    _ """; Начальное значение = " _ initvalue
+            Do ..Log(msg)
+            Return 1
+        }
+        Else {
+        Set msg = "Возникла проблема при создании семафора с именем = """ _ ..Name() _ """"
+        Do ..Log(msg)
+        Return 0
+        }
+    } Catch errobj {
+        Set msg = "Возникла ошибка при создании семафора: "_errobj.Data
+        Do ..Log(msg)
+        Return 0
+    }
+]]></Implementation>
+</Method>
+
+<Method name="%OnClose">
+<Description>
+Callback метод при закрытии объекта</Description>
+<Private>1</Private>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+    Set msg = "Закрываем семафор"
+    Do ..Log(msg)
+    Quit $$$OK
+]]></Implementation>
+</Method>
+</Class>
+
+
+<Class name="SemaphoreSample.LogIn">
+<ProcedureBlock>1</ProcedureBlock>
+<Super>%RegisteredObject</Super>
+<TimeChanged>63500,77441.112935</TimeChanged>
+<TimeCreated>63500,70241.120359</TimeCreated>
+
+<Method name="Run">
+<Description>
+Моделирование входа пользователей в систему</Description>
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+    
+    //открываем семафор, отвечающий за доступ к БД
+    Set cell = ##class(SemaphoreSample.Counter).%New()
+    Do cell.Open(##class(SemaphoreSample.Counter).Name())
+    
+    // начинаем "логиниться" в систему
+    // для примера берем 25 разных студентов
+    For deccnt = 1 : 1 : 25 {        
+        // генерируем случайный логин
+   		Set Name = ##class(%Library.PopulateUtils).LastName()
+   		
+        try
+        {
+	       Set result =  cell.Decrement(1, -1)  
+        } catch 
+        {
+	       Set msg = "Доступ прекращен"
+	       Do ..Logger(##class(SemaphoreSample.Counter).Name(), msg)
+	       Return   
+	    }
+        do ##class(SemaphoreSample.Util).AddUser(Name)      
+        Set msg = Name _ " зашел в систему"
+        Do ..Logger(Name, msg)
+        
+        Set waitsec = $RANDOM(10) + 7
+        Hang waitsec
+    }
+    Set msg = "Желающие зайти в систему закончились"
+    Do ..Logger(##class(SemaphoreSample.Counter).Name(), msg)
+    Quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="Logger">
+<Description>
+Вызов утилиты для записи лога</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>id:%String,msg:%String</FormalSpec>
+<Private>1</Private>
+<Implementation><![CDATA[
+    Do ##class(SemaphoreSample.Util).Logger($Horolog, id, msg)
+    Quit
+]]></Implementation>
+</Method>
+</Class>
+
+
+<Class name="SemaphoreSample.LogOut">
+<ProcedureBlock>1</ProcedureBlock>
+<Super>%RegisteredObject</Super>
+<TimeChanged>63500,78669.205667</TimeChanged>
+<TimeCreated>63500,71475.916607</TimeCreated>
+
+<Method name="Run">
+<Description>
+Increments the semaphore by small random amounts after pauses</Description>
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+    Set cell = ##class(SemaphoreSample.Counter).%New()
+    Do cell.Open(##class(SemaphoreSample.Counter).Name())
+    
+    // выходим из системы
+    For addcnt = 1 : 1 : 25 {
+        Set inx = ##class(SemaphoreSample.Util).ChooseUser(.Name)
+        while inx = -1
+        {
+	        Set waitsec = $RANDOM(10) + 1
+        	Hang waitsec
+        	Set inx = ##class(SemaphoreSample.Util).ChooseUser(.Name)
+        }
+        try 
+        {
+        	Do cell.Increment(1)
+        } catch 
+        {
+	        Set msg = "Доступ прекращен"
+	        Do ..Logger(##class(SemaphoreSample.Counter).Name(), msg)
+	        Return   
+	    }
+        do ##class(SemaphoreSample.Util).DeleteUser(inx)
+    	Set msg = Name _ " вышел из системы"
+        Do ..Logger(Name, msg)
+        
+        Set waitsec = $RANDOM(15) + 2
+        Hang waitsec
+    }
+    Set msg = "Все пользователи вышли из системы"
+    Do ..Logger(##class(SemaphoreSample.Counter).Name(), msg)
+    Quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="Logger">
+<Description>
+Вызов утилиты для записи лога</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>id:%String,msg:%String</FormalSpec>
+<Private>1</Private>
+<Implementation><![CDATA[
+    Do ##class(SemaphoreSample.Util).Logger($Horolog, id, msg)
+    Quit
+]]></Implementation>
+</Method>
+</Class>
+
+
+<Class name="SemaphoreSample.Main">
+<ProcedureBlock>1</ProcedureBlock>
+<Super>%RegisteredObject</Super>
+<TimeChanged>63500,78287.198113</TimeChanged>
+<TimeCreated>63500,67050.029892</TimeCreated>
+
+<Method name="Run">
+<Description>
+драйвер для примера</Description>
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+    // инициализируем глобал для логирования
+    Do ##class(SemaphoreSample.Util).InitLog()
+    Do ##class(SemaphoreSample.Util).InitUsers()
+    
+    Set msg = "Старт процесса"
+    Do ..Log(msg)
+
+    // создаем и инициализируем семафор
+    Set inventory = ##class(SemaphoreSample.Counter).%New()
+    If ('($ISOBJECT(inventory))) {
+        Set msg = "Метод класса SemaphoreSample.Counter %New() не отработал"
+        Do ..Log(msg)
+        Quit
+    }
+    
+    if 'inventory.Init(10) {
+	    Set msg = "Возникла проблема при инициализации семафора"
+    	Do ..Log(msg)
+	    Quit
+	    }
+    
+    // ожидаем окончания процесса
+    Set msg = "Нажмите любую клавишу для прекращения доступа..."
+    Do ..Log(msg)
+    
+    Read *x
+        
+    //удаляем семафор
+    Set msg = "Семафор удален со статусом " _ inventory.Delete()
+    Do ..Log(msg)
+    Set msg = " Окончание процесса"
+    Do ..Log(msg)
+        
+    do ##class(SemaphoreSample.Util).ShowLog()
+    
+    Quit
+]]></Implementation>
+</Method>
+
+<Method name="Log">
+<Description>
+Вызов утилиты для записи лога</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>msg:%String</FormalSpec>
+<Private>1</Private>
+<Implementation><![CDATA[
+    Do ##class(SemaphoreSample.Util).Logger($Horolog, "Main", msg)
+    Quit
+]]></Implementation>
+</Method>
+</Class>
+
+
+<Class name="SemaphoreSample.Util">
+<ProcedureBlock>1</ProcedureBlock>
+<Super>%RegisteredObject</Super>
+<TimeChanged>63500,77144.334408</TimeChanged>
+<TimeCreated>63500,67396.877962</TimeCreated>
+
+<Method name="InitLog">
+<Description>
+инициализация лога</Description>
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+    // удаление предыдущих записей из лога
+    Kill ^SemaphoreLog
+    Set ^SemaphoreLog = 0
+   
+    Quit
+]]></Implementation>
+</Method>
+
+<Method name="InitUsers">
+<Description>
+инициализация лога</Description>
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+	if $data(^LoggedUsers) '= 0
+	{
+		Kill ^LoggedUsers    	
+	}
+	Set ^LoggedUsers = 0
+]]></Implementation>
+</Method>
+
+<Method name="Logger">
+<Description>
+непосредственно запись лога в глобал</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>time:%DateTime,sender:%String,msg:%String</FormalSpec>
+<Implementation><![CDATA[
+    Set inx = $INCREMENT(^SemaphoreLog)
+    Set ^SemaphoreLog(inx, 0) = time
+    Set ^SemaphoreLog(inx, 1) = sender
+    Set ^SemaphoreLog(inx, 2) = msg
+    Write "(", ^SemaphoreLog, ") ", msg_" в "_$ztime($PIECE(time,",",2), 1), !
+    Quit
+]]></Implementation>
+</Method>
+
+<Method name="ShowLog">
+<Description>
+вывод сообщений на экран</Description>
+<ClassMethod>1</ClassMethod>
+<Implementation><![CDATA[
+    Set msgcnt = $GET(^SemaphoreLog, 0)
+    Write "Лог сообщений: количество записей = ", msgcnt, !, !
+    Write "#", ?5, "Время", ?12, "Отправитель", ?25, "Сообщение", !
+    
+    For i = 1 : 1 : msgcnt {
+        Set job = ^SemaphoreLog(i, 0)
+        Set sender = ^SemaphoreLog(i, 1)
+        Set msg = ^SemaphoreLog(i, 2)
+        Write i, ")", ?5, $ztime($PIECE(job,",",2), 1), ?15, sender, ":", ?35, msg, !
+    }
+    Quit
+]]></Implementation>
+</Method>
+
+<Method name="AddUser">
+<Description>
+добавление имени пользователя в список залогиненых</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>Name:%String</FormalSpec>
+<Implementation><![CDATA[
+   
+	Set inx = $INCREMENT(^LoggedUsers)
+	set ^LoggedUsers(inx) = Name
+]]></Implementation>
+</Method>
+
+<Method name="DeleteUser">
+<Description>
+удаление имени пользователя из списка залогиненных</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>inx:%Integer</FormalSpec>
+<Implementation><![CDATA[
+	
+	kill ^LoggedUsers(inx)
+]]></Implementation>
+</Method>
+
+<Method name="ChooseUser">
+<Description>
+удаление имени пользователя из списка залогиненных</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[&Name:%String]]></FormalSpec>
+<ReturnType>%Integer</ReturnType>
+<Implementation><![CDATA[
+	
+	if $data(^LoggedUsers) = 1
+	{
+	   Set Name = ""
+	   Quit -1
+	} else
+	{
+		Set Temp = ""
+		Set Numb = $Random(10)+5
+   		For i = 1 : 1: Numb {
+      		Set Temp = $Order(^LoggedUsers(Temp))       
+      		if (Temp = "")      
+      		{
+        		set Temp = $Order(^LoggedUsers(""))
+      		}
+   		}   
+   		set Name = ^LoggedUsers(Temp)
+   		Quit Temp
+   }
+]]></Implementation>
+</Method>
+</Class>
+</Export>
